@@ -13,11 +13,12 @@ library(viridis)
 knitr::opts_chunk$set(
 	echo = TRUE,
 	warning = FALSE,
+	message = FALSE, 
 	fig.width = 8, 
   fig.height = 6,
   out.width = "90%"
 )
-
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
 options(
   ggplot2.continuous.colour = "viridis",
   ggplot2.continuous.fill = "viridis"
@@ -79,16 +80,14 @@ homicide_or =
     lower_ci = exp(estimate - 1.96 * std.error),
     upper_ci = exp(estimate + 1.96 * std.error)
   ) %>% 
-  select(city_state,term, OR, lower_ci,upper_ci ) 
+  select(city_state,OR, lower_ci,upper_ci ) 
+homicide_or
 ```
 
 
 ```{r}
 homicide_or %>% 
-  mutate(
-    city_state = fct_reorder(city_state, OR)
-    ) %>% 
-  ggplot(aes(x = city_state, y = OR)) +
+  ggplot(aes(x = fct_reorder(city_state, OR), y = OR)) +
   geom_point() + 
   geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci)) + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+
