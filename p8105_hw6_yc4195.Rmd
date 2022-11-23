@@ -63,3 +63,39 @@ baltimore_df =
 baltimore_df
 ```
 
+```{r}
+homicide_or = 
+  homicide_df %>% 
+  nest(data = -city_state) %>% 
+  mutate(
+    regression = map(.x = data, ~glm(formula = resolution ~ victim_age + victim_sex + victim_race, data = .x, family = binomial())),
+    results = map(regression, broom::tidy)
+  ) %>% 
+  select(-data, -regression) %>% 
+  unnest(results) %>% 
+  filter(term == "victim_sexMale") %>% 
+  mutate(
+    OR = exp(estimate),
+    lower_ci = exp(estimate - 1.96 * std.error),
+    upper_ci = exp(estimate + 1.96 * std.error)
+  ) %>% 
+  select(city_state,term, OR, lower_ci,upper_ci ) 
+```
+
+
+```{r}
+homicide_or %>% 
+  mutate(
+    city_state = fct_reorder(city_state, OR)
+    ) %>% 
+  ggplot(aes(x = city_state, y = OR)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci)) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+
+  labs(
+    x = "Name for City and State",
+    y = "Adjusted Odd Ratio",
+    title = "Estimated ORs and CIs for each city"
+  )
+
+```
