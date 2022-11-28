@@ -9,6 +9,9 @@ output: github_document
 library(tidyverse)
 library(p8105.datasets)
 library(viridis)
+library(modelr)
+library(ggplot2)
+library(dplyr)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -104,13 +107,112 @@ homicide_or %>%
 
 ```{r}
 birthweight_df = 
-  read_csv("data/birthweight.csv") %>% 
-  janitor::clean_names() %>% 
+  read_csv("data/birthweight.csv")
+skimr::skim(birthweight_df)
+birthweight_df %>% 
+  janitor::clean_names() %>%
   mutate(
+    babysex = case_when(
+      babysex == 1 ~ "Male",
+      babysex == 2 ~ "Female"
+    ))%>% 
+      mutate(
     babysex = as.factor(babysex),
     frace = as.factor(frace),
     malform = as.factor(malform),
-    mrace = as.factor(mrace)
-  ) 
-birthweight_df
+    mrace = as.factor(mrace),
+    parity = as.factor(parity),
+    pnumlbw = as.factor(pnumlbw),
+    pnumsga = as.factor(pnumsga)) 
+```
+WE first check that there are no missing data in the birthweight dataset, then we clean the data for regression analysis such as converting numeric to factor where appropriate.The dataset contains `r nrow(birthweight_df)` rows and `r ncol(birthweight_df)` columns in total.
+
+
+```{r}
+multi_model = lm(bwt ~ ., data = birthweight_df)
+multi_model %>% 
+  broom::tidy() %>% 
+  knitr::kable()
+step(multi_model, direction = 'both')
+multi_model1 = lm(bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken, data = birthweight_df)
+multi_model1 %>% 
+  broom::tidy() %>% 
+  knitr::kable()
+```
+
+```{r residual_plot}
+birthweight_df %>% 
+  modelr::add_residuals(multi_model1) %>%
+  modelr::add_predictions(multi_model1) %>% 
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point(alpha = 0.3) +
+  labs(
+    title = "Predicted Values versus Residuals of the Model",
+    x = "Predicted values",
+    y = "Residuals"
+    ) +
+  theme(plot.title = element_text(hjust = 0.5))+
+  geom_line(aes(y = 0), color = "blue")
+```
+
+
+```{r model1}
+model1 = lm(bwt ~ blength + gaweeks, data = birthweight_df)
+model1 %>% 
+  broom::tidy() %>% 
+  knitr::kable()
+```
+
+
+```{r model2}
+model2 = lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex + bhead * blength * babysex, data = birthweight_df)
+model2 %>% 
+  broom::tidy() %>% 
+  knitr::kable()
+```
+
+### Cross Validaton
+
+```{r cv}
+cv_df = 
+  crossv_mc(birthweight_df, 100)
+
+cv_df = 
+  cv_df %>%
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble)) %>% 
+  mutate(
+    model11 = map(.x = train, ~lm(bwt ~ blength + gaweeks, data = birthweight_df)),
+    model22 = map(.x = train, ~lm(bwt ~ bhead + blength + babysex + bhead*blength + blength*babysex + bhead*babysex + bhead*blength*babysex, data = birthweight_df)),
+    bestmodel = map(.x = train, ~lm(bwt ~ fincome + frace + parity + mrace + babysex + mheight+ ppwt+ gaweeks + smoken + wtgain + blength + bhead, data = birthweight_df))
+  ) %>% 
+  mutate(
+    rmse_model1 = map2_dbl(.x = model11, .y = test, ~rmse(model = .x, data =.y)),
+    rmse_model2 = map2_dbl(.x = model22, .y = test, ~rmse(model = .x, data =.y)),
+    rmse_bestmodel = map2_dbl(.x = bestmodel, .y = test, ~rmse(model = .x, data =.y))
+  )
+```
+
+### Violin plot
+
+```{r}
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse,color = model, fill = model)) + 
+  geom_violin() +
+  geom_boxplot(alpha = 0.5, color = "blue")+
+  labs(
+    x = "Models",
+    y = "RMSE",
+    title = "Distribution of 3 models' RMSE"
+  )+
+  theme( plot.title = element_text(hjust = .5))
+  
 ```
