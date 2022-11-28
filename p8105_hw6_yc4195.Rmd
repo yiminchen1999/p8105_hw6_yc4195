@@ -205,7 +205,7 @@ cv_df %>%
     values_to = "rmse",
     names_prefix = "rmse_") %>% 
   mutate(model = fct_inorder(model)) %>% 
-  ggplot(aes(x = model, y = rmse,color = model, fill = model)) + 
+  ggplot(aes(x = model, y = rmse,color = model)) + 
   geom_violin() +
   geom_boxplot(alpha = 0.5, color = "blue")+
   labs(
