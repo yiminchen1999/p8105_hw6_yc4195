@@ -140,6 +140,7 @@ multi_model1 %>%
   broom::tidy() %>% 
   knitr::kable()
 ```
+I’ll propose a model for this problem using both forward and backward stepwise selection, and finallty keep these variables :babysex , bhead , blength , delwt , fincome , gaweeks , mheight , mrace , parity , ppwt , smoken.
 
 ```{r residual_plot}
 birthweight_df %>% 
